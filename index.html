@@ -249,6 +249,13 @@
         <button class="btn" id="analyzeBtn" onclick="runOCR()" disabled>Analyser la photo</button>
       </div>
 
+      <div class="card" id="capture-step-file">
+        <label>Ou importer un fichier (PDF, Word, TXT, CSV)</label>
+        <input type="file" accept=".pdf,.doc,.docx,.txt,.csv,text/plain,text/csv,application/pdf" id="fileImportInput" style="margin-bottom:10px;">
+        <p class="muted" id="fileImportStatus"></p>
+        <button class="btn" id="analyzeFileBtn" onclick="runFileImport()" disabled>Analyser le fichier</button>
+      </div>
+
       <div class="card" id="capture-step-review" style="display:none;">
         <label>Vérifie et corrige les paires détectées</label>
         <p class="muted" style="margin-top:-4px;">Corrige les erreurs de reconnaissance avant d'enregistrer.</p>
@@ -339,6 +346,8 @@
 <div id="toast"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.0.4/tesseract.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
