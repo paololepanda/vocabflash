@@ -129,6 +129,147 @@ function parseVocabText(rawText) {
   return pairs;
 }
 
+/* ================= FILE IMPORT (PDF / DOCX / TXT / CSV) ================= */
+if (typeof pdfjsLib !== "undefined") {
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+}
+
+document.getElementById("fileImportInput").addEventListener("change", (e) => {
+  document.getElementById("analyzeFileBtn").disabled = !e.target.files[0];
+  document.getElementById("fileImportStatus").textContent = "";
+});
+
+function runFileImport() {
+  const file = document.getElementById("fileImportInput").files[0];
+  if (!file) return;
+  document.getElementById("analyzeFileBtn").disabled = true;
+  document.getElementById("fileImportStatus").textContent = "Analyse en cours...";
+  extractTextFromFile(file)
+    .then((text) => {
+      document.getElementById("analyzeFileBtn").disabled = false;
+      handleImportedText(text, file.name);
+    })
+    .catch((err) => {
+      console.error(err);
+      document.getElementById("fileImportStatus").textContent =
+        "Erreur d'analyse. Vérifie le format du fichier.";
+      document.getElementById("analyzeFileBtn").disabled = false;
+    });
+}
+
+function extractTextFromFile(file) {
+  const ext = file.name.split(".").pop().toLowerCase();
+  if (ext === "txt" || ext === "csv") {
+    return file.text();
+  } else if (ext === "pdf") {
+    return extractTextFromPDF(file);
+  } else if (ext === "doc" || ext === "docx") {
+    return extractTextFromDocx(file);
+  }
+  return Promise.reject(new Error("Format non supporté"));
+}
+
+function groupTextItemsToLines(items) {
+  const lines = {};
+  items.forEach((it) => {
+    const y = Math.round(it.transform[5]);
+    if (!lines[y]) lines[y] = [];
+    lines[y].push({ x: it.transform[4], str: it.str });
+  });
+  const ys = Object.keys(lines).map(Number).sort((a, b) => b - a);
+  return ys
+    .map((y) =>
+      lines[y]
+        .sort((a, b) => a.x - b.x)
+        .map((o) => o.str)
+        .join("\t")
+    )
+    .join("\n");
+}
+
+async function ocrPdfPage(page, pageNum, totalPages) {
+  document.getElementById("fileImportStatus").textContent =
+    "PDF scanné détecté — OCR page " + pageNum + "/" + totalPages + "...";
+  const viewport = page.getViewport({ scale: 2 });
+  const canvas = document.createElement("canvas");
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
+  const ctx = canvas.getContext("2d");
+  await page.render({ canvasContext: ctx, viewport }).promise;
+  const dataUrl = canvas.toDataURL("image/png");
+  const { data: { text } } = await Tesseract.recognize(dataUrl, "eng+fra");
+  return text;
+}
+
+async function extractTextFromPDF(file) {
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  let fullText = "";
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    fullText += groupTextItemsToLines(content.items) + "\n";
+  }
+  if (fullText.trim().length < 20) {
+    // Likely a scanned/image PDF with no selectable text layer: fall back to OCR
+    fullText = "";
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      fullText += (await ocrPdfPage(page, i, pdf.numPages)) + "\n";
+    }
+  }
+  return fullText;
+}
+
+async function extractTextFromDocx(file) {
+  const buf = await file.arrayBuffer();
+  const result = await mammoth.extractRawText({ arrayBuffer: buf });
+  return result.value;
+}
+
+function handleImportedText(rawText, fileName) {
+  const pairs = parseVocabText(rawText);
+  const lineCount = rawText
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0).length;
+  const defaultName = fileName.replace(/\.[^.]+$/, "");
+
+  // "Confident" = most non-empty lines were successfully split into a pair
+  const confident = pairs.length > 0 && lineCount > 0 && pairs.length / lineCount >= 0.7;
+
+  document.getElementById("fileImportStatus").textContent = "";
+
+  if (confident) {
+    packs.push({
+      id: uid(),
+      name: defaultName,
+      createdAt: Date.now(),
+      words: pairs.map((p) => ({ id: uid(), en: p.en, fr: p.fr })),
+    });
+    savePacks(packs);
+    resetFileImportUI();
+    toast('Liste "' + defaultName + '" importée (' + pairs.length + " mots)");
+    goTo("screen-packs", true);
+    renderPacks();
+  } else {
+    showReview(pairs);
+    document.getElementById("packNameInput").value = defaultName;
+    toast(
+      pairs.length === 0
+        ? "Aucune paire détectée automatiquement, vérifie et complète."
+        : "Résultat incertain — vérifie les paires avant d'enregistrer."
+    );
+  }
+}
+
+function resetFileImportUI() {
+  document.getElementById("fileImportInput").value = "";
+  document.getElementById("analyzeFileBtn").disabled = true;
+  document.getElementById("fileImportStatus").textContent = "";
+}
+
 function showReview(pairs) {
   document.getElementById("capture-step-photo").style.display = "none";
   document.getElementById("capture-step-review").style.display = "block";
@@ -183,6 +324,7 @@ function savePackFromReview() {
   document.getElementById("analyzeBtn").disabled = true;
   document.getElementById("packNameInput").value = "";
   capturedDataUrl = null;
+  resetFileImportUI();
 
   toast("Liste \"" + name + "\" enregistrée (" + words.length + " mots)");
   goTo("screen-packs", true);
