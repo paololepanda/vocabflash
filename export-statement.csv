@@ -1,0 +1,6 @@
+"Symbol","Side","Avg Entry","Amount","Start Date","Avg Exit","Close Date","Notes","Strategy","Confidence","PNL"
+"NZDJPY","Buy (Long)",93.275,0.01,"2026-08-10T07:30:00.000Z",94.67401,"2026-08-26T06:00:00.000Z","{""ops"":[{""insert"":""premier TP après une sérié de SL trade bon respecte la statégie\n""}]}","DS","High",9
+"USDJPY","Buy (Long)",158.932,0.01,"2026-08-10T13:30:00.000Z",158.37,"2026-08-20T12:00:00.000Z","{""ops"":[{""insert"":""sortie manuel sur trade management sinon steup de trade bon \n""}]}","DS","High",-1
+"NZDUSD","Sell (Short)",0.58441,0.01,"2026-08-13T13:00:00.000Z",0.58684,"2026-08-14T05:10:00.000Z","{""ops"":[{""insert"":""trade pris dans la stratégie mais sl un peu court car le court suis mon analyse et avec un sl peu large j'aurais eu un meilleur RR\n""}]}","DS","Medium",-2.11
+"EURGBP","Sell (Short)",0.85368,0.01,"2026-08-10T15:45:00.000Z",0.8572599999999999,"2026-08-19T15:37:00.000Z","","DS","Medium",-4.18
+"GBPNZD","Buy (Long)",2.30026,0.01,"2026-08-11T09:00:00.000Z",2.28328,"2026-08-21T10:30:00.000Z","","DS","Medium",-3.05
