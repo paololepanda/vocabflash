@@ -1,5 +1,10 @@
 # VocabFlash — Historique des versions
 
+## v1.3
+Fichiers modifiés : index.html, app.js, sw.js
+- Les paires contenant des symboles de notation (>, <, ≠, ≈, ~, ±) sont désormais exclues automatiquement du quiz et du memory — elles restent stockées mais ne sont plus proposées tant qu'elles ne sont pas corrigées
+- Nouvel écran "détail de liste" : depuis "Gérer mes listes", taper sur une liste affiche toutes ses paires ; celles à problème sont surlignées en rouge, avec possibilité de corriger ou supprimer chaque paire
+
 ## v1.2
 Fichiers modifiés : index.html, app.js, sw.js
 - Bandeau "Nouvelle version disponible" avec bouton de mise à jour en un tap (le service worker applique la nouvelle version et recharge automatiquement)

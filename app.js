@@ -1,4 +1,4 @@
-// VocabFlash — app.js — v1.2
+// VocabFlash — app.js — v1.3
 
 /* ---------- Storage ---------- */
 const STORAGE_KEY = "vocabflash_packs_v1";
@@ -25,11 +25,23 @@ function getGlobalWords() {
   return all;
 }
 
+/* Words containing notation symbols (synonym ">", antonym "≠", etc.)
+   aren't real translations — keep them stored, but exclude them from
+   quiz/memory until the user cleans them up in the pack detail view. */
+const SUSPECT_CHARS_REGEX = /[<>≠≈±~]/;
+function isReliableWord(w) {
+  return !SUSPECT_CHARS_REGEX.test(w.en) && !SUSPECT_CHARS_REGEX.test(w.fr);
+}
+function getReliableWords(words) {
+  return words.filter(isReliableWord);
+}
+
 /* ---------- Navigation ---------- */
 const screenTitles = {
   "screen-home": "VocabFlash",
   "screen-capture": "Nouvelle liste",
   "screen-packs": "Mes listes",
+  "screen-pack-detail": "Détail de la liste",
   "screen-quiz-setup": "Quiz",
   "screen-quiz": "Quiz",
   "screen-quiz-result": "Quiz terminé",
@@ -394,13 +406,66 @@ function renderPacks() {
     html += `<div class="empty-state">Aucune liste pour le moment.<br>Prends une photo pour en créer une.</div>`;
   } else {
     packs.forEach((p) => {
+      const flaggedCount = p.words.length - getReliableWords(p.words).length;
+      const flaggedText = flaggedCount > 0 ? ` · ${flaggedCount} à vérifier` : "";
       html += `<div class="pack-item">
-        <div><div class="pack-name">${escapeHtml(p.name)}</div><div class="pack-count">${p.words.length} mots</div></div>
-        <button class="del-row-btn" onclick="deletePack('${p.id}')">✕</button>
+        <div class="pack-clickable" style="flex:1;cursor:pointer;" onclick="openPackDetail('${p.id}')">
+          <div class="pack-name">${escapeHtml(p.name)}</div>
+          <div class="pack-count">${p.words.length} mots${flaggedText}</div>
+        </div>
+        <button class="del-row-btn" onclick="event.stopPropagation(); deletePack('${p.id}')">✕</button>
       </div>`;
     });
   }
   card.innerHTML = html;
+}
+
+let currentDetailPackId = null;
+
+function openPackDetail(id) {
+  const p = packs.find((x) => x.id === id);
+  if (!p) return;
+  currentDetailPackId = id;
+  goTo("screen-pack-detail");
+  document.getElementById("screenTitle").textContent = p.name;
+
+  const tbody = document.getElementById("packDetailTbody");
+  tbody.innerHTML = "";
+  let hasFlagged = false;
+  p.words.forEach((w) => {
+    const flagged = !isReliableWord(w);
+    if (flagged) hasFlagged = true;
+    const tr = document.createElement("tr");
+    tr.dataset.wordId = w.id;
+    const flagStyle = flagged ? "border-color:var(--bad);background:#FDE8E1;" : "";
+    tr.innerHTML = `
+      <td><input type="text" class="pd-en" value="${escapeHtml(w.en)}" style="${flagStyle}"></td>
+      <td><input type="text" class="pd-fr" value="${escapeHtml(w.fr)}" style="${flagStyle}"></td>
+      <td><button class="del-row-btn" onclick="this.closest('tr').remove()">✕</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById("packDetailHint").textContent = hasFlagged
+    ? "En rouge : paires contenant un symbole (>, ≠...) non pris en compte dans le quiz/memory. Corrige ou supprime-les si besoin."
+    : "";
+}
+
+function savePackDetail() {
+  const p = packs.find((x) => x.id === currentDetailPackId);
+  if (!p) return;
+  const rows = document.querySelectorAll("#packDetailTbody tr");
+  const words = [];
+  rows.forEach((tr) => {
+    const en = tr.querySelector(".pd-en").value.trim();
+    const fr = tr.querySelector(".pd-fr").value.trim();
+    if (en && fr) words.push({ id: tr.dataset.wordId || uid(), en, fr });
+  });
+  p.words = words;
+  savePacks(packs);
+  toast("Liste mise à jour");
+  goTo("screen-packs", true);
+  renderPacks();
 }
 
 function deletePack(id) {
@@ -419,12 +484,12 @@ function refreshListChoices(kind) {
   select.innerHTML = "";
   const globalOpt = document.createElement("option");
   globalOpt.value = "__global__";
-  globalOpt.textContent = "Toutes les listes (" + getGlobalWords().length + " mots)";
+  globalOpt.textContent = "Toutes les listes (" + getReliableWords(getGlobalWords()).length + " mots utilisables)";
   select.appendChild(globalOpt);
   packs.forEach((p) => {
     const opt = document.createElement("option");
     opt.value = p.id;
-    opt.textContent = p.name + " (" + p.words.length + " mots)";
+    opt.textContent = p.name + " (" + getReliableWords(p.words).length + " mots utilisables)";
     select.appendChild(opt);
   });
   if (kind === "quiz") {
@@ -443,11 +508,19 @@ function getWordsForSelection(value) {
 
 function updateQuizListInfo() {
   const value = document.getElementById("quizListSelect").value;
-  const count = getWordsForSelection(value).length;
-  document.getElementById("quizListInfo").textContent =
-    count === 0
-      ? "Cette liste est vide."
-      : "Le quiz portera sur " + Math.min(20, count) + " carte(s) sur " + count + " mots disponibles.";
+  const all = getWordsForSelection(value);
+  const usable = getReliableWords(all);
+  let text;
+  if (usable.length === 0) {
+    text = "Aucun mot utilisable dans cette liste.";
+  } else {
+    text =
+      "Le quiz portera sur " + Math.min(20, usable.length) + " carte(s) sur " + usable.length + " mots utilisables.";
+    if (usable.length < all.length) {
+      text += " (" + (all.length - usable.length) + " exclus car non fiables)";
+    }
+  }
+  document.getElementById("quizListInfo").textContent = text;
 }
 
 /* ================= QUIZ ================= */
@@ -487,9 +560,9 @@ function levenshtein(a, b) {
 
 function startQuiz() {
   const value = document.getElementById("quizListSelect").value;
-  const words = getWordsForSelection(value);
+  const words = getReliableWords(getWordsForSelection(value));
   if (words.length === 0) {
-    toast("Cette liste est vide.");
+    toast("Cette liste n'a aucun mot utilisable.");
     return;
   }
   const count = Math.min(20, words.length);
@@ -620,7 +693,7 @@ let memoryState = null;
 
 function updateMemoryPairOptions() {
   const value = document.getElementById("memoryListSelect").value;
-  const count = getWordsForSelection(value).length;
+  const count = getReliableWords(getWordsForSelection(value)).length;
   const select = document.getElementById("memoryPairsSelect");
   select.innerHTML = "";
   const maxPairs = Math.min(count, 30); // sane display cap
@@ -649,7 +722,7 @@ function startMemory() {
 }
 
 function launchMemoryLevel(listValue, pairsCount) {
-  const words = getWordsForSelection(listValue);
+  const words = getReliableWords(getWordsForSelection(listValue));
   if (words.length < pairsCount) {
     // not enough vocab left to increase further
     showMemoryResult(true, "Bravo, tu as fait le tour de cette liste !", true);

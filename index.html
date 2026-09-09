@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- VocabFlash — index.html — v1.2 -->
+<!-- VocabFlash — index.html — v1.3 -->
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
@@ -254,7 +254,7 @@
   <header class="topbar">
     <button class="backbtn" id="backBtn" style="visibility:hidden;">←</button>
     <h1 id="screenTitle">VocabFlash</h1>
-    <span class="muted" style="font-size:11px;">v1.2</span>
+    <span class="muted" style="font-size:11px;">v1.3</span>
   </header>
 
   <main>
@@ -304,6 +304,18 @@
     <!-- PACKS MANAGEMENT -->
     <section class="screen" id="screen-packs">
       <div class="card" id="packsListCard">
+      </div>
+    </section>
+
+    <!-- PACK DETAIL -->
+    <section class="screen" id="screen-pack-detail">
+      <div class="card">
+        <p class="muted" id="packDetailHint" style="margin-top:0;"></p>
+        <table class="review-table" id="packDetailTable">
+          <thead><tr><th>Mot</th><th>Traduction</th><th></th></tr></thead>
+          <tbody id="packDetailTbody"></tbody>
+        </table>
+        <button class="btn" onclick="savePackDetail()">Enregistrer les modifications</button>
       </div>
     </section>
 
