@@ -1,6 +1,6 @@
-// VocabFlash — sw.js — v1.3
+// VocabFlash — sw.js — v1.4
 
-const CACHE_NAME = "vocabflash-v1-3";
+const CACHE_NAME = "vocabflash-v1-4";
 const ASSETS = [
   "./",
   "./index.html",
@@ -17,7 +17,9 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)).catch(() => {})
   );
-  self.skipWaiting();
+  // Note: no self.skipWaiting() here on purpose — an update must stay
+  // "waiting" until the user taps the update banner, otherwise it
+  // activates and reloads the page almost immediately on its own.
 });
 
 self.addEventListener("activate", (event) => {

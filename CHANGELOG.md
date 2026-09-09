@@ -1,5 +1,10 @@
 # VocabFlash — Historique des versions
 
+## v1.4
+Fichiers modifiés : index.html, app.js, sw.js
+- Correction du bandeau de mise à jour qui disparaissait tout seul : le service worker forçait l'activation immédiate au lieu d'attendre le tap sur le bouton, ce qui déclenchait un rechargement automatique quasi instantané
+- Les underscores "_" (utilisés pour marquer les syllabes accentuées) ne sont plus interprétés comme une coupure de mot par le lecteur
+
 ## v1.3
 Fichiers modifiés : index.html, app.js, sw.js
 - Les paires contenant des symboles de notation (>, <, ≠, ≈, ~, ±) sont désormais exclues automatiquement du quiz et du memory — elles restent stockées mais ne sont plus proposées tant qu'elles ne sont pas corrigées

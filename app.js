@@ -1,4 +1,4 @@
-// VocabFlash — app.js — v1.3
+// VocabFlash — app.js — v1.4
 
 /* ---------- Storage ---------- */
 const STORAGE_KEY = "vocabflash_packs_v1";
@@ -123,6 +123,11 @@ function runOCR() {
 }
 
 function parseVocabText(rawText) {
+  // Underscores in these vocab sheets mark stressed syllables inside a
+  // word (e.g. "ex_am_ple"), not a word boundary — strip them before
+  // splitting so the reader doesn't cut a word in pieces.
+  rawText = rawText.replace(/_+/g, "");
+
   const lines = rawText
     .split("\n")
     .map((l) => l.trim())
