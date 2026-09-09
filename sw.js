@@ -1,6 +1,6 @@
-// VocabFlash — sw.js — v1.1
+// VocabFlash — sw.js — v1.2
 
-const CACHE_NAME = "vocabflash-v1-1";
+const CACHE_NAME = "vocabflash-v1-2";
 const ASSETS = [
   "./",
   "./index.html",
@@ -8,6 +8,10 @@ const ASSETS = [
   "./icon-192.png",
   "./icon-512.png"
 ];
+
+self.addEventListener("message", (event) => {
+  if (event.data === "SKIP_WAITING") self.skipWaiting();
+});
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

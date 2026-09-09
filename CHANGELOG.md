@@ -1,5 +1,10 @@
 # VocabFlash — Historique des versions
 
+## v1.2
+Fichiers modifiés : index.html, app.js, sw.js
+- Bandeau "Nouvelle version disponible" avec bouton de mise à jour en un tap (le service worker applique la nouvelle version et recharge automatiquement)
+- Patch n°1 : correction de la détection des colonnes du lecteur PDF — un mot coupé en plusieurs fragments (ex : "cross" / "-section") n'est plus interprété à tort comme une nouvelle colonne ; la logique se base maintenant sur la taille de l'espace entre les fragments plutôt que sur leur simple présence
+
 ## v1.1
 Fichiers modifiés : index.html, app.js, sw.js
 - Ajout de l'import de vocabulaire par fichier (PDF texte, PDF scanné avec OCR automatique, TXT, CSV, Word)
