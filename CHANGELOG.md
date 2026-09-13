@@ -1,5 +1,9 @@
 # VocabFlash — Historique des versions
 
+## v1.5
+Fichiers modifiés : index.html, app.js, sw.js
+- Correction de l'import PDF multi-pages : la détection "texte vs scanné" se fait maintenant page par page (au lieu du document entier), donc un PDF qui mélange des pages avec texte réel et des pages scannées ne perd plus le contenu des pages scannées
+
 ## v1.4
 Fichiers modifiés : index.html, app.js, sw.js
 - Correction du bandeau de mise à jour qui disparaissait tout seul : le service worker forçait l'activation immédiate au lieu d'attendre le tap sur le bouton, ce qui déclenchait un rechargement automatique quasi instantané

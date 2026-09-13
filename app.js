@@ -1,4 +1,4 @@
-// VocabFlash — app.js — v1.4
+// VocabFlash — app.js — v1.5
 
 /* ---------- Storage ---------- */
 const STORAGE_KEY = "vocabflash_packs_v1";
@@ -279,15 +279,14 @@ async function extractTextFromPDF(file) {
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i);
     const content = await page.getTextContent();
-    fullText += groupTextItemsToLines(content.items) + "\n";
-  }
-  if (fullText.trim().length < 20) {
-    // Likely a scanned/image PDF with no selectable text layer: fall back to OCR
-    fullText = "";
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      fullText += (await ocrPdfPage(page, i, pdf.numPages)) + "\n";
+    let pageText = groupTextItemsToLines(content.items);
+    // Check page by page: a document can mix real text pages with
+    // scanned/image pages, so a single document-wide check would miss
+    // pages that individually have no selectable text layer.
+    if (pageText.trim().length < 20) {
+      pageText = await ocrPdfPage(page, i, pdf.numPages);
     }
+    fullText += pageText + "\n";
   }
   return fullText;
 }
