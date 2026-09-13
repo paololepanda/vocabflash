@@ -1,4 +1,4 @@
-// VocabFlash — app.js — v1.5
+// VocabFlash — app.js — v1.6
 
 /* ---------- Storage ---------- */
 const STORAGE_KEY = "vocabflash_packs_v1";
@@ -109,10 +109,10 @@ function runOCR() {
     },
   })
     .then(({ data: { text } }) => {
-      const pairs = parseVocabText(text);
+      const { pairs, unmatched } = parseVocabText(text);
       document.getElementById("ocrStatus").textContent = "";
       document.getElementById("analyzeBtn").disabled = false;
-      showReview(pairs);
+      showReview(pairs, unmatched);
     })
     .catch((err) => {
       console.error(err);
@@ -135,12 +135,14 @@ function parseVocabText(rawText) {
 
   const otherDelimiters = [/\s{2,}/, /\s+-\s+/, /\s+–\s+/, /:\s*/, /,\s*/];
   const pairs = [];
+  const unmatched = [];
 
-  lines.forEach((line) => {
-    // Tab = a genuine detected table column (from the PDF reader or a
-    // pasted TSV). Be lenient: if there are extra stray tab-splits,
-    // treat the first cell as the word and merge the rest as the answer,
-    // rather than dropping the whole line.
+  lines.forEach((rawLine) => {
+    // Dictionary-style glossaries often glue a single section-letter
+    // header to the first entry of that letter, e.g. "A acier steel".
+    // Strip it so it doesn't get captured as part of the word.
+    const line = rawLine.replace(/^[A-Z]\s+(?=[a-zà-ÿA-Z])/, "");
+
     if (line.indexOf("\t") !== -1) {
       const tabParts = line.split(/\t+/).map((p) => p.trim()).filter((p) => p.length > 0);
       if (tabParts.length >= 2) {
@@ -155,8 +157,13 @@ function parseVocabText(rawText) {
         return;
       }
     }
+    // Couldn't confidently split this line into two columns — never
+    // drop it silently, hand it to the review screen instead so the
+    // user can complete or merge it by hand.
+    unmatched.push(line);
   });
-  return pairs;
+
+  return { pairs, unmatched };
 }
 
 /* ================= FILE IMPORT (PDF / DOCX / TXT / CSV) ================= */
@@ -224,11 +231,15 @@ function groupTextItemsToLines(items) {
   });
   if (currentRow.length) rows.push(currentRow);
 
-  // Within each row, merge fragments into cells based on gap size:
-  // near-zero gap = same word split across runs (e.g. a hyphen), a
-  // normal gap = same cell / new word, a large gap = new table column.
+  // Within each row, merge fragments into cells. Some PDF generators
+  // encode the gap between table columns as an explicit space character
+  // whose *width* carries the real gap (sometimes 100+ points wide),
+  // rather than a genuine x-jump between adjacent words — so a wide
+  // whitespace-only item is treated as a column boundary in its own
+  // right, on top of the normal position-gap heuristic.
   const lines = rows.map((row) => {
-    const rowSorted = row.slice().sort((a, b) => a.transform[4] - b.transform[4]);
+    const rowSorted = row.slice().sort((a, b) => a.transform[4] - b.transform[4]).filter((it) => it.str.length > 0);
+    if (rowSorted.length === 0) return "";
     const avgHeight = rowSorted.reduce((s, it) => s + (it.height || 10), 0) / rowSorted.length || 10;
     const cells = [];
     let cellText = "";
@@ -236,8 +247,17 @@ function groupTextItemsToLines(items) {
     rowSorted.forEach((it) => {
       const x = it.transform[4];
       const w = it.width || it.str.length * avgHeight * 0.5;
+      const isWhitespaceItem = it.str.trim() === "";
+
       if (prevRight === null) {
-        cellText = it.str;
+        cellText = isWhitespaceItem ? "" : it.str;
+      } else if (isWhitespaceItem) {
+        if (w > avgHeight * 2) {
+          cells.push(cellText.trim());
+          cellText = "";
+        } else {
+          cellText += " ";
+        }
       } else {
         const gap = x - prevRight;
         if (gap > avgHeight * 0.7) {
@@ -252,7 +272,7 @@ function groupTextItemsToLines(items) {
       prevRight = x + w;
     });
     if (cellText) cells.push(cellText.trim());
-    return cells.join("\t");
+    return cells.filter((c) => c.length > 0).join("\t");
   });
 
   return lines.join("\n");
@@ -298,15 +318,13 @@ async function extractTextFromDocx(file) {
 }
 
 function handleImportedText(rawText, fileName) {
-  const pairs = parseVocabText(rawText);
-  const lineCount = rawText
-    .split("\n")
-    .map((l) => l.trim())
-    .filter((l) => l.length > 0).length;
+  const { pairs, unmatched } = parseVocabText(rawText);
   const defaultName = fileName.replace(/\.[^.]+$/, "");
 
-  // "Confident" = most non-empty lines were successfully split into a pair
-  const confident = pairs.length > 0 && lineCount > 0 && pairs.length / lineCount >= 0.7;
+  // Only auto-save when every single line was understood — any
+  // unrecognized line goes to manual review instead of being dropped,
+  // since a partial silent import can lose real vocabulary content.
+  const confident = pairs.length > 0 && unmatched.length === 0;
 
   document.getElementById("fileImportStatus").textContent = "";
 
@@ -323,12 +341,12 @@ function handleImportedText(rawText, fileName) {
     goTo("screen-packs", true);
     renderPacks();
   } else {
-    showReview(pairs);
+    showReview(pairs, unmatched);
     document.getElementById("packNameInput").value = defaultName;
     toast(
-      pairs.length === 0
-        ? "Aucune paire détectée automatiquement, vérifie et complète."
-        : "Résultat incertain — vérifie les paires avant d'enregistrer."
+      pairs.length === 0 && unmatched.length === 0
+        ? "Aucune paire détectée automatiquement, ajoute-les à la main."
+        : unmatched.length + " ligne(s) à compléter à la main — vérifie avant d'enregistrer."
     );
   }
 }
@@ -339,23 +357,26 @@ function resetFileImportUI() {
   document.getElementById("fileImportStatus").textContent = "";
 }
 
-function showReview(pairs) {
+function showReview(pairs, unmatched) {
   document.getElementById("capture-step-photo").style.display = "none";
   document.getElementById("capture-step-review").style.display = "block";
   const tbody = document.getElementById("reviewTbody");
   tbody.innerHTML = "";
-  if (pairs.length === 0) {
+  if (pairs.length === 0 && (!unmatched || unmatched.length === 0)) {
     toast("Aucune paire détectée automatiquement, ajoute-les à la main.");
   }
   pairs.forEach((p) => addReviewRow(p.en, p.fr));
+  (unmatched || []).forEach((line) => addReviewRow(line, ""));
 }
 
 function addReviewRow(en, fr) {
   const tbody = document.getElementById("reviewTbody");
   const tr = document.createElement("tr");
+  const incomplete = !fr;
+  const style = incomplete ? "border-color:var(--bad);background:#FDE8E1;" : "";
   tr.innerHTML = `
-    <td><input type="text" class="rev-en" value="${escapeHtml(en || "")}"></td>
-    <td><input type="text" class="rev-fr" value="${escapeHtml(fr || "")}"></td>
+    <td><input type="text" class="rev-en" value="${escapeHtml(en || "")}" style="${style}"></td>
+    <td><input type="text" class="rev-fr" value="${escapeHtml(fr || "")}" style="${style}" placeholder="${incomplete ? "à compléter..." : ""}"></td>
     <td><button class="del-row-btn" onclick="this.closest('tr').remove()">✕</button></td>
   `;
   tbody.appendChild(tr);

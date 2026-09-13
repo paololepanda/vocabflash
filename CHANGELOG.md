@@ -1,5 +1,12 @@
 # VocabFlash — Historique des versions
 
+## v1.6
+Fichiers modifiés : index.html, app.js, sw.js
+- Correction majeure de la détection des colonnes PDF : certains PDF encodent l'espace entre les colonnes via un caractère espace à largeur variable (parfois 100+ points) plutôt que par un vrai décalage horizontal — c'était la vraie cause du très faible taux de reconnaissance
+- Retrait automatique de la lettre de section collée au premier mot d'un glossaire type dictionnaire (ex : "A acier steel" → "acier steel")
+- Plus aucune ligne n'est supprimée silencieusement : toute ligne non comprise apparaît désormais dans l'écran de vérification avec la traduction vide, à compléter à la main
+- L'import automatique direct ne se déclenche que si 100% des lignes ont été comprises (au lieu d'un seuil de 70%)
+
 ## v1.5
 Fichiers modifiés : index.html, app.js, sw.js
 - Correction de l'import PDF multi-pages : la détection "texte vs scanné" se fait maintenant page par page (au lieu du document entier), donc un PDF qui mélange des pages avec texte réel et des pages scannées ne perd plus le contenu des pages scannées
