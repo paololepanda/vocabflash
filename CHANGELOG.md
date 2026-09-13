@@ -1,5 +1,9 @@
 # VocabFlash — Historique des versions
 
+## v1.8
+Fichiers modifiés : app.js, index.html, sw.js
+- Délai avant de passer à la question suivante (réponse validée ou "Passer") allongé de 0,9s à 6s, pour avoir le temps de lire la réponse
+
 ## v1.7
 Fichiers modifiés : index.html, app.js, sw.js
 - Ajout d'un bouton "Passer à la question suivante" dans le quiz (ne compte ni juste ni faux, montre la bonne réponse puis avance)

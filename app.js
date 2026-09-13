@@ -1,4 +1,4 @@
-// VocabFlash — app.js — v1.7
+// VocabFlash — app.js — v1.8
 
 /* ---------- Storage ---------- */
 const STORAGE_KEY = "vocabflash_packs_v1";
@@ -702,7 +702,7 @@ function submitQuizAnswer(given, triggerEl) {
     } else {
       renderQuizQuestion();
     }
-  }, 900);
+  }, 6000);
 }
 
 function skipQuizQuestion() {
@@ -723,7 +723,7 @@ function skipQuizQuestion() {
     } else {
       renderQuizQuestion();
     }
-  }, 900);
+  }, 6000);
 }
 
 function finishQuiz() {
