@@ -1,4 +1,4 @@
-// VocabFlash — app.js — v1.6
+// VocabFlash — app.js — v1.7
 
 /* ---------- Storage ---------- */
 const STORAGE_KEY = "vocabflash_packs_v1";
@@ -622,6 +622,7 @@ function renderQuizQuestion() {
   document.getElementById("quizWord").textContent = q.prompt;
   document.getElementById("quiz-feedback").textContent = "";
   document.getElementById("quiz-feedback").className = "";
+  document.getElementById("quizSkipBtn").disabled = false;
 
   const pill = document.getElementById("quizModePill");
   const modeLabels = {
@@ -692,6 +693,28 @@ function submitQuizAnswer(given, triggerEl) {
   document.querySelectorAll("#quizAnswerZone button, #quizAnswerZone input").forEach((el) => {
     el.disabled = true;
   });
+  document.getElementById("quizSkipBtn").disabled = true;
+
+  setTimeout(() => {
+    quizState.index++;
+    if (quizState.index >= quizState.questions.length) {
+      finishQuiz();
+    } else {
+      renderQuizQuestion();
+    }
+  }, 900);
+}
+
+function skipQuizQuestion() {
+  const q = quizState.questions[quizState.index];
+  const fb = document.getElementById("quiz-feedback");
+  fb.textContent = "Passé — réponse : " + q.answer;
+  fb.className = "";
+
+  document.querySelectorAll("#quizAnswerZone button, #quizAnswerZone input").forEach((el) => {
+    el.disabled = true;
+  });
+  document.getElementById("quizSkipBtn").disabled = true;
 
   setTimeout(() => {
     quizState.index++;

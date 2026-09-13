@@ -1,6 +1,6 @@
-// VocabFlash — sw.js — v1.6
+// VocabFlash — sw.js — v1.7
 
-const CACHE_NAME = "vocabflash-v1-6";
+const CACHE_NAME = "vocabflash-v1-7";
 const ASSETS = [
   "./",
   "./index.html",

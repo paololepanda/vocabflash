@@ -1,5 +1,9 @@
 # VocabFlash — Historique des versions
 
+## v1.7
+Fichiers modifiés : index.html, app.js, sw.js
+- Ajout d'un bouton "Passer à la question suivante" dans le quiz (ne compte ni juste ni faux, montre la bonne réponse puis avance)
+
 ## v1.6
 Fichiers modifiés : index.html, app.js, sw.js
 - Correction majeure de la détection des colonnes PDF : certains PDF encodent l'espace entre les colonnes via un caractère espace à largeur variable (parfois 100+ points) plutôt que par un vrai décalage horizontal — c'était la vraie cause du très faible taux de reconnaissance
