@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- VocabFlash — index.html — v1.8 -->
+<!-- VocabFlash — index.html — v1.9 -->
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
@@ -242,6 +242,21 @@
     white-space:nowrap;
     cursor:pointer;
   }
+  .recap-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:8px;
+    padding:10px 0;
+    border-bottom:1px solid var(--line);
+    font-size:14px;
+  }
+  .recap-row:last-child{border-bottom:none;}
+  .recap-words{flex:1;}
+  .recap-given{color:var(--ink-soft);font-size:13px;}
+  .recap-icon{font-size:16px;width:22px;text-align:center;flex-shrink:0;}
+  .stat-line{display:flex;justify-content:space-between;font-size:14px;padding:5px 0;}
+  .stat-line b{font-size:16px;}
 </style>
 </head>
 <body>
@@ -254,7 +269,7 @@
   <header class="topbar">
     <button class="backbtn" id="backBtn" style="visibility:hidden;">←</button>
     <h1 id="screenTitle">VocabFlash</h1>
-    <span class="muted" style="font-size:11px;">v1.8</span>
+    <span class="muted" style="font-size:11px;">v1.9</span>
   </header>
 
   <main>
@@ -268,6 +283,7 @@
       <button class="btn secondary" onclick="goTo('screen-quiz-setup'); refreshListChoices('quiz')">🧠 Lancer un quiz</button>
       <button class="btn secondary" onclick="goTo('screen-memory-setup'); refreshListChoices('memory')">🃏 Jeu de mémoire (paires)</button>
       <button class="btn secondary" onclick="goTo('screen-packs'); renderPacks()">📚 Gérer mes listes</button>
+      <button class="btn secondary" onclick="openStatsHome()">📊 Statistiques</button>
     </section>
 
     <!-- CAPTURE -->
@@ -349,6 +365,7 @@
         <p class="muted" id="quizScoreSub"></p>
       </div>
       <button class="btn" onclick="goTo('screen-quiz-setup'); refreshListChoices('quiz')">Refaire un quiz</button>
+      <button class="btn secondary" onclick="openQuizRecap(lastFinishedQuizId)">Voir le détail des réponses</button>
       <button class="btn secondary" onclick="goTo('screen-home')">Retour à l'accueil</button>
     </section>
 
@@ -382,6 +399,30 @@
       <button class="btn secondary" onclick="retryMemorySameLevel()">Rejouer ce niveau</button>
       <button class="btn secondary" onclick="goTo('screen-memory-setup'); refreshListChoices('memory')">Changer de niveau / liste</button>
       <button class="btn secondary" onclick="goTo('screen-home')">Retour à l'accueil</button>
+    </section>
+
+    <!-- STATS -->
+    <section class="screen" id="screen-stats">
+      <div class="card">
+        <p class="muted" style="margin-top:0;font-weight:600;">Vue globale (toutes listes)</p>
+        <div id="statsGlobalBlock"></div>
+      </div>
+      <div class="card">
+        <label>Statistiques pour une liste en particulier</label>
+        <select id="statsListSelect" onchange="renderStatsForList()"></select>
+        <div id="statsListBlock"></div>
+      </div>
+      <button class="btn secondary" onclick="openQuizHistory()">Historique des quiz</button>
+    </section>
+
+    <!-- QUIZ HISTORY -->
+    <section class="screen" id="screen-quiz-history">
+      <div class="card" id="quizHistoryCard"></div>
+    </section>
+
+    <!-- QUIZ RECAP -->
+    <section class="screen" id="screen-quiz-recap">
+      <div class="card" id="quizRecapCard"></div>
     </section>
 
   </main>

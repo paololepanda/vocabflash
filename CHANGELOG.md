@@ -1,5 +1,10 @@
 # VocabFlash — Historique des versions
 
+## v1.9
+Fichiers modifiés : index.html, app.js, sw.js
+- Historique complet des quiz (date, liste, score), avec détail des réponses pour chaque quiz passé (y compris le dernier, accessible directement depuis l'écran de résultat)
+- Nouvelle page Statistiques : vue globale (toutes listes) + vue par liste au choix — % de mots vus au moins une fois, % de mots "connus" (≥80% de bonnes réponses sur l'ensemble de leurs passages), nombre de quiz passés et score moyen
+
 ## v1.8
 Fichiers modifiés : app.js, index.html, sw.js
 - Délai avant de passer à la question suivante (réponse validée ou "Passer") allongé de 0,9s à 6s, pour avoir le temps de lire la réponse

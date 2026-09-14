@@ -1,7 +1,42 @@
-// VocabFlash — app.js — v1.8
+// VocabFlash — app.js — v1.9
 
 /* ---------- Storage ---------- */
 const STORAGE_KEY = "vocabflash_packs_v1";
+const WORD_STATS_KEY = "vocabflash_word_stats_v1";
+const QUIZ_HISTORY_KEY = "vocabflash_quiz_history_v1";
+
+function loadWordStats() {
+  try {
+    return JSON.parse(localStorage.getItem(WORD_STATS_KEY)) || {};
+  } catch (e) {
+    return {};
+  }
+}
+function saveWordStats(stats) {
+  localStorage.setItem(WORD_STATS_KEY, JSON.stringify(stats));
+}
+let wordStats = loadWordStats();
+
+function recordWordAttempt(wordId, correct) {
+  if (!wordId) return;
+  if (!wordStats[wordId]) wordStats[wordId] = { attempts: 0, correct: 0 };
+  wordStats[wordId].attempts++;
+  if (correct) wordStats[wordId].correct++;
+  saveWordStats(wordStats);
+}
+
+function loadQuizHistory() {
+  try {
+    return JSON.parse(localStorage.getItem(QUIZ_HISTORY_KEY)) || [];
+  } catch (e) {
+    return [];
+  }
+}
+function saveQuizHistory(history) {
+  // Keep the most recent 100 quizzes to avoid unbounded growth
+  localStorage.setItem(QUIZ_HISTORY_KEY, JSON.stringify(history.slice(-100)));
+}
+let quizHistory = loadQuizHistory();
 
 function loadPacks() {
   try {
@@ -48,6 +83,9 @@ const screenTitles = {
   "screen-memory-setup": "Jeu de mémoire",
   "screen-memory": "Jeu de mémoire",
   "screen-memory-result": "Résultat",
+  "screen-stats": "Statistiques",
+  "screen-quiz-history": "Historique des quiz",
+  "screen-quiz-recap": "Détail du quiz",
 };
 let navStack = ["screen-home"];
 
@@ -583,6 +621,12 @@ function levenshtein(a, b) {
   return dp[m][n];
 }
 
+function getListLabel(value) {
+  if (value === "__global__") return "Toutes les listes";
+  const p = packs.find((x) => x.id === value);
+  return p ? p.name : "Liste supprimée";
+}
+
 function startQuiz() {
   const value = document.getElementById("quizListSelect").value;
   const words = getReliableWords(getWordsForSelection(value));
@@ -607,10 +651,10 @@ function startQuiz() {
         .map((x) => (direction === "en2fr" ? x.fr : x.en));
       options = shuffle([answer, ...distractors]);
     }
-    return { prompt, answer, direction, mode, options };
+    return { wordId: w.id, prompt, answer, direction, mode, options, given: null, result: null };
   });
 
-  quizState = { questions, index: 0, score: 0 };
+  quizState = { questions, index: 0, score: 0, listValue: value, listLabel: getListLabel(value) };
   goTo("screen-quiz");
   renderQuizQuestion();
 }
@@ -681,6 +725,9 @@ function submitQuizAnswer(given, triggerEl) {
   }
 
   const fb = document.getElementById("quiz-feedback");
+  q.given = given;
+  q.result = isCorrect ? "correct" : "wrong";
+  recordWordAttempt(q.wordId, isCorrect);
   if (isCorrect) {
     quizState.score++;
     fb.textContent = "Correct !";
@@ -707,6 +754,8 @@ function submitQuizAnswer(given, triggerEl) {
 
 function skipQuizQuestion() {
   const q = quizState.questions[quizState.index];
+  q.given = null;
+  q.result = "skipped";
   const fb = document.getElementById("quiz-feedback");
   fb.textContent = "Passé — réponse : " + q.answer;
   fb.className = "";
@@ -726,7 +775,22 @@ function skipQuizQuestion() {
   }, 6000);
 }
 
+let lastFinishedQuizId = null;
+
 function finishQuiz() {
+  const entry = {
+    id: uid(),
+    date: Date.now(),
+    listValue: quizState.listValue,
+    listLabel: quizState.listLabel,
+    score: quizState.score,
+    total: quizState.questions.length,
+    questions: quizState.questions,
+  };
+  quizHistory.push(entry);
+  saveQuizHistory(quizHistory);
+  lastFinishedQuizId = entry.id;
+
   goTo("screen-quiz-result");
   document.getElementById("quizScoreBig").textContent =
     quizState.score + " / " + quizState.questions.length;
@@ -891,6 +955,144 @@ function showMemoryResult(perfect, title, isMax, nextPairs) {
 
 function retryMemorySameLevel() {
   launchMemoryLevel(memoryState.listValue, memoryState.pairsCount);
+}
+
+/* ================= STATS ================= */
+const KNOWN_THRESHOLD = 0.8;
+
+function computeWordSetStats(words) {
+  const total = words.length;
+  let seen = 0;
+  let known = 0;
+  words.forEach((w) => {
+    const s = wordStats[w.id];
+    if (s && s.attempts > 0) {
+      seen++;
+      if (s.correct / s.attempts >= KNOWN_THRESHOLD) known++;
+    }
+  });
+  return {
+    total,
+    seen,
+    seenPct: total > 0 ? Math.round((seen / total) * 100) : 0,
+    known,
+    knownPct: total > 0 ? Math.round((known / total) * 100) : 0,
+  };
+}
+
+function computeQuizStats(historyEntries) {
+  if (historyEntries.length === 0) return null;
+  let totalCorrect = 0;
+  let totalQuestions = 0;
+  let sumPct = 0;
+  historyEntries.forEach((e) => {
+    totalCorrect += e.score;
+    totalQuestions += e.total;
+    sumPct += e.total > 0 ? (e.score / e.total) * 100 : 0;
+  });
+  return {
+    count: historyEntries.length,
+    avgScorePct: Math.round(sumPct / historyEntries.length),
+    totalCorrect,
+    totalQuestions,
+  };
+}
+
+function statsBlockHtml(wordSetStats, quizStats) {
+  let html = "";
+  html += `<div class="stat-line"><span>Mots vus au moins une fois</span><b>${wordSetStats.seen} / ${wordSetStats.total} (${wordSetStats.seenPct}%)</b></div>`;
+  html += `<div class="stat-line"><span>Mots connus (≥80% de réussite)</span><b>${wordSetStats.known} / ${wordSetStats.total} (${wordSetStats.knownPct}%)</b></div>`;
+  if (quizStats) {
+    html += `<div class="stat-line"><span>Quiz passés</span><b>${quizStats.count}</b></div>`;
+    html += `<div class="stat-line"><span>Score moyen aux quiz</span><b>${quizStats.avgScorePct}%</b></div>`;
+  } else {
+    html += `<p class="muted" style="margin-bottom:0;">Aucun quiz passé pour l'instant.</p>`;
+  }
+  return html;
+}
+
+function openStatsHome() {
+  goTo("screen-stats");
+
+  const globalStats = computeWordSetStats(getGlobalWords());
+  const globalQuizStats = computeQuizStats(quizHistory);
+  document.getElementById("statsGlobalBlock").innerHTML = statsBlockHtml(globalStats, globalQuizStats);
+
+  const select = document.getElementById("statsListSelect");
+  select.innerHTML = "";
+  const globalOpt = document.createElement("option");
+  globalOpt.value = "__global__";
+  globalOpt.textContent = "Toutes les listes";
+  select.appendChild(globalOpt);
+  packs.forEach((p) => {
+    const opt = document.createElement("option");
+    opt.value = p.id;
+    opt.textContent = p.name;
+    select.appendChild(opt);
+  });
+  renderStatsForList();
+}
+
+function renderStatsForList() {
+  const value = document.getElementById("statsListSelect").value;
+  const words = getWordsForSelection(value);
+  const listStats = computeWordSetStats(words);
+  const listQuizHistory = quizHistory.filter((e) => e.listValue === value);
+  const listQuizStats = computeQuizStats(listQuizHistory);
+  document.getElementById("statsListBlock").innerHTML = statsBlockHtml(listStats, listQuizStats);
+}
+
+/* ================= QUIZ HISTORY & RECAP ================= */
+function openQuizHistory() {
+  goTo("screen-quiz-history");
+  const card = document.getElementById("quizHistoryCard");
+  if (quizHistory.length === 0) {
+    card.innerHTML = `<div class="empty-state">Aucun quiz passé pour l'instant.</div>`;
+    return;
+  }
+  const sorted = quizHistory.slice().sort((a, b) => b.date - a.date);
+  let html = "";
+  sorted.forEach((e) => {
+    const d = new Date(e.date);
+    const dateStr = d.toLocaleDateString("fr-FR") + " " + d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+    html += `<div class="pack-item" style="cursor:pointer;" onclick="openQuizRecap('${e.id}')">
+      <div>
+        <div class="pack-name">${escapeHtml(e.listLabel)}</div>
+        <div class="pack-count">${dateStr} · ${e.score} / ${e.total}</div>
+      </div>
+    </div>`;
+  });
+  card.innerHTML = html;
+}
+
+function openQuizRecap(quizId) {
+  const entry = quizHistory.find((e) => e.id === quizId);
+  if (!entry) {
+    toast("Ce quiz n'est plus disponible.");
+    return;
+  }
+  goTo("screen-quiz-recap");
+  document.getElementById("screenTitle").textContent = entry.listLabel + " · " + entry.score + "/" + entry.total;
+
+  const icons = { correct: "✅", wrong: "❌", skipped: "⏭️" };
+  let html = "";
+  entry.questions.forEach((q) => {
+    const icon = icons[q.result] || "?";
+    const givenLine =
+      q.result === "wrong"
+        ? `<div class="recap-given">Ta réponse : ${escapeHtml(q.given || "")}</div>`
+        : q.result === "skipped"
+        ? `<div class="recap-given">Passé</div>`
+        : "";
+    html += `<div class="recap-row">
+      <span class="recap-icon">${icon}</span>
+      <div class="recap-words">
+        <div>${escapeHtml(q.prompt)} → ${escapeHtml(q.answer)}</div>
+        ${givenLine}
+      </div>
+    </div>`;
+  });
+  document.getElementById("quizRecapCard").innerHTML = html;
 }
 
 /* ================= SERVICE WORKER + AUTO-UPDATE ================= */
